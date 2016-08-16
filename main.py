@@ -49,12 +49,12 @@ def main():
         arm.init_iteration(k)
         reports = device.execute(arm.fsm, dataset.encoded_data)
         if len(reports) < 1:
-            raise RuntimeError('zero {}-itemsets satisfy minsup {}'.format(arm.k, arm.min_support))
+            print '  zero {}-itemsets satisfy minsup {}'.format(arm.k, arm.min_support)
+            break
         arm.process_reports(reports)
 
         if args.verbose: 
-            print '  candidates({}): {}'.format(len(arm.candidates), arm.candidates)
-            print '  survivors({}): {}'.format(len(reports), [arm.candidates[x - 1] for x in reports])
+            print '  survivors({}): {}'.format(len(arm.itemsets), arm.itemsets)
 
 
 if __name__ == '__main__':
