@@ -27,9 +27,9 @@ class ItemsetMacro(object):
     def create(self):
         """"""
         self.mdef = self.anml.CreateMacroDef(anmlId='arm_macro_k{}'.format(self.k))
-        last_ste = self.create_item_chain_()
-        counter = self.create_support_counter_(last_ste)
-        self.create_end_delimiters_(counter)
+        last_el = self.create_item_chain_()
+        last_el = self.create_support_counter_(last_el)
+        self.create_end_delimiters_(last_el)
 
     def create_item_chain_(self):
         """"""
@@ -86,13 +86,39 @@ class ItemsetMacro(object):
 
     def create_double_precision_remainder_counter_(self, prev):
         """"""
-        raise NotImplementedError()
+        p_ctr = self.mdef.AddCounter(settings.DEFAULT_TARGET, mode=ap.CounterMode.STOP_PULSE)
+        q_ctr = self.mdef.AddCounter(settings.DEFAULT_TARGET, mode=ap.CounterMode.STOP_HOLD)
+        r_ctr = self.mdef.AddCounter(settings.DEFAULT_TARGET, mode=ap.CounterMode.STOP_HOLD)
+        and_gate = self.mdef.AddBoolean(ap.BooleanMode.AND)
+        pq_pad = self.mdef.AddSTE('*')
+        post_q_pad = self.mdef.AddSTE('*')
+        post_r_pad = self.mdef.AddSTE('*')
+        post_and_pad = self.mdef.AddSTE('*')
 
-    def create_end_delimiters_(self, counter):
+        self.mdef.AddMacroParam('%p_msp', p_ctr)
+        self.mdef.AddMacroParam('%q_msp', q_ctr)
+        self.mdef.AddMacroParam('%r_msp', r_ctr)
+
+        self.mdef.AddAnmlEdge(prev, p_ctr, ap.AnmlDefs.COUNT_ONE_PORT)
+        self.mdef.AddAnmlEdge(prev, r_ctr, ap.AnmlDefs.COUNT_ONE_PORT)
+        self.mdef.AddAnmlEdge(p_ctr, pq_pad)
+        self.mdef.AddAnmlEdge(pq_pad, p_ctr, ap.AnmlDefs.RESET_PORT)
+        self.mdef.AddAnmlEdge(pq_pad, q_ctr, ap.AnmlDefs.COUNT_ONE_PORT)
+        self.mdef.AddAnmlEdge(pq_pad, r_ctr, ap.AnmlDefs.RESET_PORT)
+        self.mdef.AddAnmlEdge(q_ctr, post_q_pad)
+        self.mdef.AddAnmlEdge(r_ctr, post_r_pad)
+        self.mdef.AddAnmlEdge(post_q_pad, and_gate)
+        self.mdef.AddAnmlEdge(post_r_pad, and_gate)
+        self.mdef.AddAnmlEdge(and_gate, post_and_pad)
+        self.mdef.AddAnmlEdge(post_and_pad, p_ctr, ap.AnmlDefs.RESET_PORT)
+
+        return and_gate
+
+    def create_end_delimiters_(self, prev):
         """"""
         eod1 = self.mdef.AddSTE(SYMSET_DELIM)
         eod2 = self.mdef.AddSTE(SYMSET_DELIM, match=True)
-        self.mdef.AddAnmlEdge(counter, eod1)
+        self.mdef.AddAnmlEdge(prev, eod1)
         self.mdef.AddAnmlEdge(eod1, eod2)
 
     def compile(self):
