@@ -4,6 +4,7 @@ import os
 import micronap.sdk as ap
 
 import settings
+import utils
 
 
 class ARM(object):
@@ -58,7 +59,7 @@ class ARM(object):
         for i, itemset in enumerate(self.candidates):
             mref = self.emap.GetElementRefFromElementId('arm_net_k{}.mref{}'.format(self.k, i))
             symbol_chgs += self.label_items_(mref, itemset)
-            target_chgs.append(self.label_counter_(mref))
+            target_chgs += self.label_counter_(mref)
 
         self.fsm.SetSymbol(self.emap, symbol_chgs)
         self.fsm.SetCounterTarget(self.emap, target_chgs)
@@ -74,8 +75,35 @@ class ARM(object):
     # TODO: this should be done once per FSM as an initialization step, not every iteration
     def label_counter_(self, mref):
         """"""
+        factors = utils.get_counter_factors(self.min_support)
+
+        if len(factors) == 1:
+            return self.label_single_precision_counter_(mref)
+        elif len(factors) == 2:
+            return self.label_double_precision_counter_(mref, factors)
+        else:
+            return self.label_double_precision_remainder_counter_(mref, factors)
+
+    def label_single_precision_counter_(self, mref):
+        """"""
         param = self.mdef.GetMacroParamFromName('%msp')
-        return ap.ap_counter_change(mref, self.min_support, param)
+        return [ap.ap_counter_change(mref, self.min_support, param)]
+
+    def label_double_precision_counter_(self, mref, factors):
+        """"""
+        p_param = self.mdef.GetMacroParamFromName('%p_msp')
+        q_param = self.mdef.GetMacroParamFromName('%q_msp')
+        return [ap.ap_counter_change(mref, factors[0], p_param),
+                ap.ap_counter_change(mref, factors[1], q_param)]
+
+    def label_double_precision_remainder_counter_(self, mref, factors):
+        """"""
+        p_param = self.mdef.GetMacroParamFromName('%p_msp')
+        q_param = self.mdef.GetMacroParamFromName('%q_msp')
+        r_param = self.mdef.GetMacroParamFromName('%r_msp')
+        return [ap.ap_counter_change(mref, factors[0], p_param),
+                ap.ap_counter_change(mref, factors[1], q_param),
+                ap.ap_counter_change(mref, factors[2], r_param)]
 
     def process_reports(self, erefs):
         """"""

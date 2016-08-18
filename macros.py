@@ -2,32 +2,37 @@ import os
 import micronap.sdk as ap
 
 import settings
+import utils
 
 SYMSET_DELIM = r'[\x{:02x}]'.format(settings.DEFAULT_DELIM)
 SYMSET_NOT_DELIM = r'[^\x{:02x}]'.format(settings.DEFAULT_DELIM)
 
 
 # TODO: add support for itemset IDs > 255 (multi-STE items)
-# TODO: add support for support values > 2048 (multi-counter values)
-#
 class ItemsetMacro(object):
-    def __init__(self, anml, k):
+    def __init__(self, anml, k, min_support):
         """Constructor.
 
         Args:
             anml: ANML workspace.
             k: Number of items in itemset.
+            min_support: Minimum support value.
         """
         self.anml = anml
         self.k = k
+        self.min_support = min_support
         self.mdef = None
         self.create()
 
     def create(self):
         """"""
         self.mdef = self.anml.CreateMacroDef(anmlId='arm_macro_k{}'.format(self.k))
+        last_ste = self.create_item_chain_()
+        counter = self.create_support_counter_(last_ste)
+        self.create_end_delimiters_(counter)
 
-        # Create the item chain
+    def create_item_chain_(self):
+        """"""
         prev = self.mdef.AddSTE(SYMSET_DELIM, startType=ap.AnmlDefs.ALL_INPUT)
         symbols = [settings.DEFAULT_SYMBOL for _ in xrange(self.k)] + [SYMSET_DELIM]
 
@@ -44,15 +49,50 @@ class ItemsetMacro(object):
 
             prev = item
 
-        # Add the support counter 
+        return prev
+
+    def create_support_counter_(self, prev):
+        """"""
+        factors = utils.get_counter_factors(self.min_support)
+        if len(factors) == 1:
+            return self.create_single_precision_counter_(prev)
+        elif len(factors) == 2:
+            return self.create_double_precision_counter_(prev)
+        else:
+            return self.create_double_precision_remainder_counter_(prev)
+
+    def create_single_precision_counter_(self, prev):
+        """"""
         ctr = self.mdef.AddCounter(settings.DEFAULT_TARGET, mode=ap.CounterMode.STOP_HOLD)
         self.mdef.AddMacroParam('%msp', ctr)
         self.mdef.AddAnmlEdge(prev, ctr, ap.AnmlDefs.COUNT_ONE_PORT)
+        return ctr
 
-        # Add the end-of-data delimiters
+    def create_double_precision_counter_(self, prev):
+        """"""
+        p_ctr = self.mdef.AddCounter(settings.DEFAULT_TARGET, mode=ap.CounterMode.STOP_PULSE)
+        q_ctr = self.mdef.AddCounter(settings.DEFAULT_TARGET, mode=ap.CounterMode.STOP_HOLD)
+        pad_ste = self.mdef.AddSTE('*')
+
+        self.mdef.AddMacroParam('%p_msp', p_ctr)
+        self.mdef.AddMacroParam('%q_msp', q_ctr)
+
+        self.mdef.AddAnmlEdge(prev, p_ctr, ap.AnmlDefs.COUNT_ONE_PORT)
+        self.mdef.AddAnmlEdge(p_ctr, pad_ste)
+        self.mdef.AddAnmlEdge(pad_ste, p_ctr, ap.AnmlDefs.RESET_PORT)
+        self.mdef.AddAnmlEdge(pad_ste, q_ctr, ap.AnmlDefs.COUNT_ONE_PORT)
+
+        return q_ctr
+
+    def create_double_precision_remainder_counter_(self, prev):
+        """"""
+        raise NotImplementedError()
+
+    def create_end_delimiters_(self, counter):
+        """"""
         eod1 = self.mdef.AddSTE(SYMSET_DELIM)
         eod2 = self.mdef.AddSTE(SYMSET_DELIM, match=True)
-        self.mdef.AddAnmlEdge(ctr, eod1)
+        self.mdef.AddAnmlEdge(counter, eod1)
         self.mdef.AddAnmlEdge(eod1, eod2)
 
     def compile(self):
