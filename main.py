@@ -16,12 +16,17 @@ from arm import ARM
 def parse_args():
     """"""
     parser = ArgumentParser()
-    parser.add_argument('--device', '-d', default='/dev/frio0')
+    parser.add_argument('--device', '-d', default=settings.DEV_NAME)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
     parser.add_argument('--max-k', '-k', type=int, required=True)
     parser.add_argument('--min-support', '-s', type=int, required=True)
     parser.add_argument('dataset_file')
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if args.min_support > settings.MAX_DOUBLE_TARGET:
+        sys.exit('{}: support must be <= {}!'.format(__file__, settings.MAX_DOUBLE_TARGET))
+
+    return args
 
 def import_dataset(dataset_file):
     """"""

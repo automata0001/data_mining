@@ -1,7 +1,18 @@
 import math
+import operator as op
 
 import settings
 
+
+# From: http://stackoverflow.com/a/4941932/1193738
+def ncr(n, r):
+    """Calculates n choose r."""
+    r = min(r, n - r)
+    if r == 0: 
+        return 1
+    numer = reduce(op.mul, xrange(n, n - r, -1))
+    denom = reduce(op.mul, xrange(1, r + 1))
+    return numer // denom
 
 # From: http://stackoverflow.com/a/22808285/1193738
 def get_prime_factors(n):
