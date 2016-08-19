@@ -11,6 +11,7 @@ from apfacade import APFacade
 from macros import ItemsetMacro
 from dataset import Dataset
 from arm import ARM
+import utils
 
 
 def parse_args():
@@ -19,12 +20,9 @@ def parse_args():
     parser.add_argument('--device', '-d', default=settings.DEV_NAME)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
     parser.add_argument('--max-k', '-k', type=int, required=True)
-    parser.add_argument('--min-support', '-s', type=int, required=True)
+    parser.add_argument('--min-support', '-s', required=True, help='Minimum support threshold expressed as an exact value (n) or a percentage (n%)')
     parser.add_argument('dataset_file')
     args = parser.parse_args()
-
-    if args.min_support > settings.MAX_DOUBLE_TARGET:
-        sys.exit('{}: support must be <= {}!'.format(__file__, settings.MAX_DOUBLE_TARGET))
 
     return args
 
@@ -45,6 +43,11 @@ def main():
     """"""
     args = parse_args()
     dataset = import_dataset(args.dataset_file)
+
+    args.min_support = utils.normalize_minsup(args.min_support, len(dataset.data))
+    if args.min_support > settings.MAX_DOUBLE_TARGET:
+        sys.exit('{}: support must be <= {}!'.format(__file__, settings.MAX_DOUBLE_TARGET))
+
     device = setup_device(args.device)
     arm = ARM(dataset.get_frequent_items(args.min_support), args.min_support)
 
