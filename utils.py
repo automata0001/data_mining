@@ -7,9 +7,9 @@ import settings
 # From: http://stackoverflow.com/a/4941932/1193738
 def ncr(n, r):
     """Calculates n choose r."""
+    if n < r: return 0
     r = min(r, n - r)
-    if r == 0: 
-        return 1
+    if r == 0: return 1
     numer = reduce(op.mul, xrange(n, n - r, -1))
     denom = reduce(op.mul, xrange(1, r + 1))
     return numer // denom
