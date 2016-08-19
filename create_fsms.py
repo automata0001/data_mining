@@ -7,6 +7,7 @@ import micronap.sdk as ap
 
 import settings
 from macros import ItemsetMacro
+import utils
 
 
 def get_counters_per_rank(device):
@@ -50,12 +51,14 @@ def main():
     # Parse command line arguments
     parser = ArgumentParser()
     parser.add_argument('--max-k', '-k', type=int, required=True)
-    parser.add_argument('--min-support', '-s', type=int, required=True)
+    parser.add_argument('--txn-count', '-t', type=int, required=True, help='Number of transactions in the dataset')
+    parser.add_argument('--min-support', '-s', required=True, help='Minimum support threshold expressed as an exact value (n) or a percentage (n%)')
     parser.add_argument('--macro-count', '-m', type=int)
     parser.add_argument('--device', '-d', default=settings.DEV_NAME)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
     args = parser.parse_args()
 
+    args.min_support = utils.normalize_minsup(args.min_support, args.txn_count)
     if args.min_support > settings.MAX_DOUBLE_TARGET:
         sys.exit('{}: support must be <= {}!'.format(__file__, settings.MAX_DOUBLE_TARGET))
 

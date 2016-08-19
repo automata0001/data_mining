@@ -90,5 +90,21 @@ def balanced_factor_pair(factors, x, y, i):
         else:
             return [x2, y2]
 
+def normalize_minsup(minsup, lines):
+    """Returns minsup as an absolute number of lines.
+    
+    Args:
+        minsup: String representing minimum support value. Can be an integer (n)
+                or a percentage (n%). 
+        lines: Number of lines (transactions) in the dataset.
+
+    Returns:
+        An integer representing the minimum support as an absolute number of lines.
+    """
+    if minsup[-1] == '%':
+        return int((float(minsup[:-1]) / 100) * lines)
+    else:
+        return int(minsup)
+
 
 # vim: nu:et:ts=4:sw=4:fdm=indent
