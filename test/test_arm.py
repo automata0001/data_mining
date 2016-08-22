@@ -3,7 +3,6 @@ import unittest
 import micronap.sdk as ap
 
 from arm import ARM
-import create_fsms
 import utils
 
 
@@ -21,8 +20,6 @@ class TestARM(unittest.TestCase):
     def test_generate_candidates(self):
         k = 2
         minsup = 1
-        create_fsms.create_macro_defs(k, minsup)
-        create_fsms.compile_automaton(k, utils.ncr(3, 2))
         arm = ARM([1, 2, 3], minsup)
         arm.init_iteration(k)
         self.assertEqual(arm.candidates, [(1, 2), (1, 3), (2, 3)])
@@ -30,8 +27,6 @@ class TestARM(unittest.TestCase):
     def test_process_reports(self):
         k = 2
         minsup = 1
-        create_fsms.create_macro_defs(k, minsup)
-        create_fsms.compile_automaton(k, utils.ncr(3, 2))
         arm = ARM([1, 2, 3], minsup)
         arm.init_iteration(k)
 

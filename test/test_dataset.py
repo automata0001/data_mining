@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import unittest
 
+import settings
 from dataset import Dataset
 
 
@@ -59,11 +60,45 @@ class TestDataset(unittest.TestCase):
             fh.write('5\n')
         ds = Dataset(fn)
         ds.parse_file()
+
         self.assertEquals(ds.get_frequent_items(1), [1, 2, 3, 4, 5])
         self.assertEquals(ds.get_frequent_items(2), [])
 
-    def test_encode_data(self):
-        pass
+    def test_encode_data_1byte(self):
+        values = xrange(settings.STE_ID_SPACE)
+        fn = os.path.join(self.tmpdir, 'foo')
+        with open(fn, 'w') as fh:
+            for i in values:
+                fh.write(str(i) + '\n')
+        ds = Dataset(fn)
+        ds.parse_file()
+        ds.encode_data()
+
+        self.assertEquals(len(ds.encoded_data), 2*len(values) + 3)
+
+    def test_encode_data_2byte(self):
+        values = xrange(2**8, 2**9)
+        fn = os.path.join(self.tmpdir, 'foo')
+        with open(fn, 'w') as fh:
+            for i in values:
+                fh.write('{}\n'.format(i))
+        ds = Dataset(fn)
+        ds.parse_file()
+        ds.encode_data()
+
+        self.assertEquals(len(ds.encoded_data), 3*len(values) + 3)
+
+    def test_encoded_data_mixed_byte_ids(self):
+        values = [10, 100, 1000] # 1b, 1b, 2b
+        fn = os.path.join(self.tmpdir, 'foo')
+        with open(fn, 'w') as fh:
+            for i in values:
+                fh.write('{}\n'.format(i))
+        ds = Dataset(fn)
+        ds.parse_file()
+        ds.encode_data()
+
+        self.assertEquals(len(ds.encoded_data), 3*len(values) + 3)
 	
 
 # vim: nu:et:ts=4:sw=4:fdm=indent

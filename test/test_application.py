@@ -4,7 +4,6 @@ import unittest
 from apfacade import APFacade
 from dataset import Dataset
 from arm import ARM
-import create_fsms
 import settings
 import utils
 
@@ -30,11 +29,9 @@ class TestApplication(unittest.TestCase):
         """"""
         k = 3
         minsup = 2
-        create_fsms.create_macro_defs(k, minsup)
         arm = ARM(self.dataset.get_frequent_items(minsup), minsup)
         
         for k in xrange(2, k+1):
-            create_fsms.compile_automaton(k, utils.ncr(4, k))
             arm.init_iteration(k)
             reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
             arm.process_reports(reports)
@@ -45,11 +42,9 @@ class TestApplication(unittest.TestCase):
         """"""
         k = 4
         minsup = 2
-        create_fsms.create_macro_defs(k, minsup)
         arm = ARM(self.dataset.get_frequent_items(minsup), minsup)
         
         for k in xrange(2, k+1):
-            create_fsms.compile_automaton(k, utils.ncr(5, k))
             arm.init_iteration(k)
             reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
             arm.process_reports(reports)
@@ -66,11 +61,9 @@ class TestApplication(unittest.TestCase):
         """"""
         k = 2
         minsup = 4
-        create_fsms.create_macro_defs(k, minsup)
         arm = ARM(self.dataset.get_frequent_items(minsup), minsup)
         
         for k in xrange(2, k+1):
-            create_fsms.compile_automaton(k, utils.ncr(4, k))
             arm.init_iteration(k)
             reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
             arm.process_reports(reports)
@@ -85,11 +78,9 @@ class TestApplication(unittest.TestCase):
         """"""
         k = 3
         minsup = 2
-        create_fsms.create_macro_defs(k, minsup)
         arm = ARM(self.dataset.get_frequent_items(minsup), minsup)
         
         for k in xrange(2, k+1):
-            create_fsms.compile_automaton(k, utils.ncr(5, k))
             arm.init_iteration(k)
             reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
             arm.process_reports(reports)
@@ -105,11 +96,9 @@ class TestApplication(unittest.TestCase):
         """"""
         k = 2
         minsup = 3
-        create_fsms.create_macro_defs(k, minsup)
         arm = ARM(self.dataset.get_frequent_items(minsup), minsup)
         
         for k in xrange(2, k+1):
-            create_fsms.compile_automaton(k, utils.ncr(5, k))
             arm.init_iteration(k)
             reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
             arm.process_reports(reports)
@@ -124,11 +113,9 @@ class TestApplication(unittest.TestCase):
         """"""
         k = 3
         minsup = 3000
-        create_fsms.create_macro_defs(k, minsup)
         arm = ARM(self.dataset.get_frequent_items(minsup), minsup)
         
         for k in xrange(2, k+1):
-            create_fsms.compile_automaton(k, utils.ncr(3, k))
             arm.init_iteration(k)
             reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
             arm.process_reports(reports)
@@ -144,11 +131,9 @@ class TestApplication(unittest.TestCase):
         """"""
         k = 3
         minsup = 2053 # [2048, 1, 5]
-        create_fsms.create_macro_defs(k, minsup)
         arm = ARM(self.dataset.get_frequent_items(minsup), minsup)
         
         for k in xrange(2, k+1):
-            create_fsms.compile_automaton(k, utils.ncr(3, k))
             arm.init_iteration(k)
             reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
             arm.process_reports(reports)

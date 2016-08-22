@@ -15,33 +15,35 @@ def get_counters_per_rank(device):
     metrics = ap.QueryDeviceMetrics(device)
     return settings.CTR_PER_BLK * settings.BLK_PER_DEV * (metrics.devs_per_rank - 1)
 
-def create_macro_defs(max_k, min_support):
+def create_macro_def(k, id_bytes, num_counters):
     """"""
-    for k in xrange(1, max_k + 1):
-        macro = ItemsetMacro(ap.Anml(), k, min_support)
-        macro.compile()
-        macro.export('k{}.anml'.format(k))
+    macro = ItemsetMacro(ap.Anml(), k, id_bytes, num_counters)
+    macro.compile()
+    macro.export('i{}c{}k{}.anml'.format(id_bytes, num_counters, k))
 
-def compile_automaton(k, ctr_max):
+def compile_automaton(k, id_bytes, num_counters, macro_count):
     """"""
+    ick = 'i{}c{}k{}'.format(id_bytes, num_counters, k)
+
     anml = ap.Anml()
-    mdef = anml.LoadAnmlMacro(os.path.join(settings.ANML_PATH, 'k{}.anml'.format(k)))
-    network = anml.CreateAutomataNetwork(anmlId='arm_net_k{}'.format(k))
+    mdef = anml.LoadAnmlMacro(os.path.join(settings.ANML_PATH, '{}.anml'.format(ick)))
+    network = anml.CreateAutomataNetwork(anmlId='arm_net_{}'.format(ick))
 
     mrefs = []
-    for i in xrange(ctr_max):
+    for i in xrange(macro_count):
         mrefs.append(network.AddMacroRef(mdef, anmlId='mref{}'.format(i)))
     fsm, emap = anml.CompileAnml(options=ap.CompileDefs.AP_OPT_MT)
 
     changes = []
     for mref in mrefs:
-        for j in xrange(k):
-            param = mdef.GetMacroParamFromName('%i{}'.format(j))
-            changes.append(ap.ap_symbol_change(mref, '[]', param))
+        for i in xrange(k):
+            for x in xrange(id_bytes):
+                param = mdef.GetMacroParamFromName('%i{}{}'.format(i, x))
+                changes.append(ap.ap_symbol_change(mref, '[]', param))
     fsm.SetSymbol(emap, changes)
 
-    fsm.Save(os.path.join(settings.FSM_PATH, 'k{}.fsm'.format(k)))
-    emap.SaveElementMap(os.path.join(settings.MAP_PATH, 'k{}.map'.format(k)))
+    fsm.Save(os.path.join(settings.FSM_PATH, '{}.fsm'.format(ick)))
+    emap.SaveElementMap(os.path.join(settings.MAP_PATH, '{}.map'.format(ick)))
 
     return fsm, emap
 
@@ -51,28 +53,27 @@ def main():
     # Parse command line arguments
     parser = ArgumentParser()
     parser.add_argument('--max-k', '-k', type=int, required=True)
-    parser.add_argument('--txn-count', '-t', type=int, required=True, help='Number of transactions in the dataset')
-    parser.add_argument('--min-support', '-s', required=True, help='Minimum support threshold expressed as an exact value (n) or a percentage (n%)')
     parser.add_argument('--macro-count', '-m', type=int)
     parser.add_argument('--device', '-d', default=settings.DEV_NAME)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
     args = parser.parse_args()
 
-    args.min_support = utils.normalize_minsup(args.min_support, args.txn_count)
-    if args.min_support > settings.MAX_DOUBLE_TARGET:
-        sys.exit('{}: support must be <= {}!'.format(__file__, settings.MAX_DOUBLE_TARGET))
-
-    # Build all 1-k itemset macros
-    create_macro_defs(args.max_k, args.min_support)
-
-    # Compile automata for each k-itemset macro
     if args.macro_count:
-        ctr_max = args.macro_count
+        macro_count = args.macro_count
     else:
-        ctr_max = get_counters_per_rank(args.device)
-    for k in xrange(2, args.max_k + 1):
-        fsm, emap = compile_automaton(k, ctr_max)
-        print 'Compiled FSM for k={}, blk={}'.format(k, fsm.GetInfo().blocks_rect)
+        macro_count = get_counters_per_rank(args.device)
+
+    # Compile automata for each combination of:
+    # - number of ID bytes
+    # - number of counters
+    # - max itemset size (k)
+    # 
+    for id_bytes in xrange(1, 3):
+        for num_counters in xrange(1, 4):
+            for k in xrange(2, args.max_k + 1):
+                create_macro_def(k, id_bytes, num_counters)
+                fsm, _ = compile_automaton(k, id_bytes, num_counters, macro_count)
+                print 'Compiled FSM for i{}c{}k{}, blk={}'.format(id_bytes, num_counters, k, fsm.GetInfo().blocks_rect)
 
 
 if __name__ == '__main__':
