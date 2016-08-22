@@ -49,7 +49,7 @@ def main():
         sys.exit('{}: support must be <= {}!'.format(__file__, settings.MAX_DOUBLE_TARGET))
 
     device = setup_device(args.device)
-    arm = ARM(dataset.get_frequent_items(args.min_support), args.min_support, dataset.id_bytes)
+    arm = ARM(dataset.get_frequent_items(args.min_support), args.min_support, dataset.num_id_bytes)
 
     for k in xrange(2, args.max_k + 1):
         if args.verbose: print 'Iteration k={}'.format(k)
