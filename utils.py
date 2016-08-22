@@ -4,6 +4,14 @@ import operator as op
 import settings
 
 
+def to_base(n, b):
+    """Returns n in base b representation as a list of digits."""
+    digits = []
+    while n > 0:
+        digits.insert(0, n % b)
+        n = n // b
+    return digits
+
 # From: http://stackoverflow.com/a/4941932/1193738
 def ncr(n, r):
     """Calculates n choose r."""

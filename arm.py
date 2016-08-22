@@ -8,13 +8,16 @@ import utils
 
 
 class ARM(object):
-    def __init__(self, initial_items, min_support):
+    def __init__(self, initial_items, min_support, id_bytes=1):
         """"""
         self.min_support = min_support
+        self.id_bytes = id_bytes
         self.items = set(initial_items)
         self.itemsets = set([(x,) for x in self.items])
 
         self.k = None
+        self.factors = utils.get_counter_factors(self.min_support)
+        self.num_counters = len(self.factors)
         self.candidates = None
         self.fsm = None
         self.emap = None
@@ -23,6 +26,8 @@ class ARM(object):
     def init_iteration(self, k):
         """"""
         self.k = k
+        self.ick = 'i{}c{}k{}'.format(self.id_bytes, self.num_counters, k)
+
         self.restore_itemset_mdef_()
         self.restore_itemset_fsm_()
         self.restore_itemset_emap_()
@@ -31,19 +36,19 @@ class ARM(object):
 
     def restore_itemset_mdef_(self):
         """"""
-        path = os.path.join(settings.ANML_PATH, 'k{}.anml'.format(self.k))
+        path = os.path.join(settings.ANML_PATH, '{}.anml'.format(self.ick))
         anml = ap.Anml()
         self.mdef = anml.LoadAnmlMacro(path)
 
     def restore_itemset_fsm_(self):
         """"""
-        path = os.path.join(settings.FSM_PATH, 'k{}.fsm'.format(self.k))
+        path = os.path.join(settings.FSM_PATH, '{}.fsm'.format(self.ick))
         self.fsm = ap.Automaton()
         self.fsm.Restore(path)
 
     def restore_itemset_emap_(self):
         """"""
-        path = os.path.join(settings.MAP_PATH, 'k{}.map'.format(self.k))
+        path = os.path.join(settings.MAP_PATH, '{}.map'.format(self.ick))
         self.emap = ap.ElementMap()
         self.emap.RestoreElementMap(path)
 
@@ -57,7 +62,7 @@ class ARM(object):
         target_chgs = []
 
         for i, itemset in enumerate(self.candidates):
-            mref = self.emap.GetElementRefFromElementId('arm_net_k{}.mref{}'.format(self.k, i))
+            mref = self.emap.GetElementRefFromElementId('arm_net_{}.mref{}'.format(self.ick, i))
             symbol_chgs += self.label_items_(mref, itemset)
             target_chgs += self.label_counter_(mref)
 
@@ -67,43 +72,42 @@ class ARM(object):
     def label_items_(self, mref, itemset):
         """"""
         changes = []
-        for j, item in enumerate(itemset):
-            param = self.mdef.GetMacroParamFromName('%i{}'.format(j))
-            changes.append(ap.ap_symbol_change(mref, r'[\x{:02x}]'.format(item), param))
+        for i, item in enumerate(itemset):
+            for j in xrange(self.id_bytes):
+                param = self.mdef.GetMacroParamFromName('%i{}{}'.format(i, j))
+                changes.append(ap.ap_symbol_change(mref, r'[\x{:02x}]'.format(item), param))
         return changes
 
     # TODO: this should be done once per FSM as an initialization step, not every iteration
     def label_counter_(self, mref):
         """"""
-        factors = utils.get_counter_factors(self.min_support)
-
-        if len(factors) == 1:
+        if self.num_counters == 1:
             return self.label_single_precision_counter_(mref)
-        elif len(factors) == 2:
-            return self.label_double_precision_counter_(mref, factors)
+        elif self.num_counters == 2:
+            return self.label_double_precision_counter_(mref)
         else:
-            return self.label_double_precision_remainder_counter_(mref, factors)
+            return self.label_double_precision_remainder_counter_(mref)
 
     def label_single_precision_counter_(self, mref):
         """"""
         param = self.mdef.GetMacroParamFromName('%msp')
         return [ap.ap_counter_change(mref, self.min_support, param)]
 
-    def label_double_precision_counter_(self, mref, factors):
+    def label_double_precision_counter_(self, mref):
         """"""
         p_param = self.mdef.GetMacroParamFromName('%p_msp')
         q_param = self.mdef.GetMacroParamFromName('%q_msp')
-        return [ap.ap_counter_change(mref, factors[0], p_param),
-                ap.ap_counter_change(mref, factors[1], q_param)]
+        return [ap.ap_counter_change(mref, self.factors[0], p_param),
+                ap.ap_counter_change(mref, self.factors[1], q_param)]
 
-    def label_double_precision_remainder_counter_(self, mref, factors):
+    def label_double_precision_remainder_counter_(self, mref):
         """"""
         p_param = self.mdef.GetMacroParamFromName('%p_msp')
         q_param = self.mdef.GetMacroParamFromName('%q_msp')
         r_param = self.mdef.GetMacroParamFromName('%r_msp')
-        return [ap.ap_counter_change(mref, factors[0], p_param),
-                ap.ap_counter_change(mref, factors[1], q_param),
-                ap.ap_counter_change(mref, factors[2], r_param)]
+        return [ap.ap_counter_change(mref, self.factors[0], p_param),
+                ap.ap_counter_change(mref, self.factors[1], q_param),
+                ap.ap_counter_change(mref, self.factors[2], r_param)]
 
     def process_reports(self, erefs):
         """"""

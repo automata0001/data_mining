@@ -8,39 +8,47 @@ SYMSET_DELIM = r'[\x{:02x}]'.format(settings.DEFAULT_DELIM)
 SYMSET_NOT_DELIM = r'[^\x{:02x}]'.format(settings.DEFAULT_DELIM)
 
 
-# TODO: add support for itemset IDs > 255 (multi-STE items)
 class ItemsetMacro(object):
-    def __init__(self, anml, k, min_support):
+    def __init__(self, anml, k, id_bytes, num_counters):
         """Constructor.
 
         Args:
             anml: ANML workspace.
             k: Number of items in itemset.
-            min_support: Minimum support value.
+            id_bytes: Number of bytes required to encode item IDs (1 or 2).
+            num_counters: Number of counters required to encode min support (1-3). 
         """
         self.anml = anml
         self.k = k
-        self.min_support = min_support
+        self.id_bytes = id_bytes
+        self.num_counters = num_counters
         self.mdef = None
         self.create()
 
     def create(self):
         """"""
-        self.mdef = self.anml.CreateMacroDef(anmlId='arm_macro_k{}'.format(self.k))
-        last_el = self.create_item_chain_()
+        self.mdef = self.anml.CreateMacroDef(anmlId='arm_macro_i{}c{}k{}'.format(self.id_bytes, self.num_counters, self.k))
+        last_el = self.mdef.AddSTE(SYMSET_DELIM, startType=ap.AnmlDefs.ALL_INPUT)
+        last_el = self.create_item_chain_(last_el)
         last_el = self.create_support_counter_(last_el)
         self.create_end_delimiters_(last_el)
 
-    def create_item_chain_(self):
+    def create_item_chain_(self, prev):
         """"""
-        prev = self.mdef.AddSTE(SYMSET_DELIM, startType=ap.AnmlDefs.ALL_INPUT)
+        if self.id_bytes == 1:
+            return self.create_single_precision_item_chain_(prev)
+        else:
+            return self.create_double_precision_item_chain_(prev)
+
+    def create_single_precision_item_chain_(self, prev):
+        """"""
         symbols = [settings.DEFAULT_SYMBOL for _ in xrange(self.k)] + [SYMSET_DELIM]
 
         for i, sym in enumerate(symbols):
             item = self.mdef.AddSTE(sym) 
             hold = self.mdef.AddSTE(SYMSET_NOT_DELIM)
             if sym == settings.DEFAULT_SYMBOL:
-                self.mdef.AddMacroParam('%i{}'.format(i), item)
+                self.mdef.AddMacroParam('%i{}0'.format(i), item)
 
             self.mdef.AddAnmlEdge(prev, item)
             self.mdef.AddAnmlEdge(prev, hold)
@@ -51,12 +59,33 @@ class ItemsetMacro(object):
 
         return prev
 
+    def create_double_precision_item_chain_(self, prev):
+        """"""
+        for i in xrange(self.k):
+            item0 = self.mdef.AddSTE(settings.DEFAULT_SYMBOL)
+            item1 = self.mdef.AddSTE(settings.DEFAULT_SYMBOL)
+            self.mdef.AddMacroParam('%i{}0'.format(i), item0)
+            self.mdef.AddMacroParam('%i{}1'.format(i), item1)
+
+            hold0 = self.mdef.AddSTE(SYMSET_NOT_DELIM)
+            hold1 = self.mdef.AddSTE(SYMSET_NOT_DELIM)
+
+            self.mdef.AddAnmlEdge(prev, item0)
+            self.mdef.AddAnmlEdge(prev, hold0)
+            self.mdef.AddAnmlEdge(item0, item1)
+            self.mdef.AddAnmlEdge(hold0, hold1)
+            self.mdef.AddAnmlEdge(hold1, hold0)
+            self.mdef.AddAnmlEdge(hold1, item0)
+
+            prev = item1
+
+        return prev
+
     def create_support_counter_(self, prev):
         """"""
-        factors = utils.get_counter_factors(self.min_support)
-        if len(factors) == 1:
+        if self.num_counters == 1:
             return self.create_single_precision_counter_(prev)
-        elif len(factors) == 2:
+        elif self.num_counters == 2:
             return self.create_double_precision_counter_(prev)
         else:
             return self.create_double_precision_remainder_counter_(prev)

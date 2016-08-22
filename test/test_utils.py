@@ -5,6 +5,11 @@ from utils import *
 
 
 class TestUtils(unittest.TestCase):
+    def test_to_base(self):
+        self.assertEquals(to_base(1, 10), [1])
+        self.assertEquals(to_base(256, 255), [1, 1])
+        self.assertEquals(to_base(255*255 - 1, 255), [254, 254])
+
     def test_ncr(self):
         self.assertEquals(ncr(0, 0), 1)
         self.assertEquals(ncr(0, 1), 0)
