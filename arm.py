@@ -8,12 +8,12 @@ import utils
 
 
 class ARM(object):
-    def __init__(self, initial_items, min_support, id_bytes=1):
+    def __init__(self, initial_items, min_support, num_id_bytes=1):
         """"""
         self.min_support = min_support
-        self.id_bytes = id_bytes
+        self.num_id_bytes = num_id_bytes
         self.items = set(initial_items)
-        self.itemsets = set([(x,) for x in self.items])
+        self.itemsets = set([frozenset([x]) for x in self.items])
 
         self.k = None
         self.factors = utils.get_counter_factors(self.min_support)
@@ -26,7 +26,7 @@ class ARM(object):
     def init_iteration(self, k):
         """"""
         self.k = k
-        self.ick = 'i{}c{}k{}'.format(self.id_bytes, self.num_counters, k)
+        self.ick = 'i{}c{}k{}'.format(self.num_id_bytes, self.num_counters, k)
 
         self.restore_itemset_mdef_()
         self.restore_itemset_fsm_()
@@ -72,10 +72,16 @@ class ARM(object):
     def label_items_(self, mref, itemset):
         """"""
         changes = []
-        for i, item in enumerate(itemset):
-            for j in xrange(self.id_bytes):
+        for i, item in enumerate(sorted(itemset)):
+            id_bytes = utils.to_base(item, settings.STE_ID_SPACE)
+            id_bytes.reverse()
+            num_zeroes = self.num_id_bytes - len(id_bytes)
+            for j in xrange(self.num_id_bytes):
                 param = self.mdef.GetMacroParamFromName('%i{}{}'.format(i, j))
-                changes.append(ap.ap_symbol_change(mref, r'[\x{:02x}]'.format(item), param))
+                byte = 0
+                if j >= num_zeroes: 
+                    byte = id_bytes.pop()
+                changes.append(ap.ap_symbol_change(mref, r'[\x{:02x}]'.format(byte), param))
         return changes
 
     # TODO: this should be done once per FSM as an initialization step, not every iteration
@@ -115,7 +121,7 @@ class ARM(object):
             itemset = self.candidates[eref - 1]
             for i in itemset: 
                 self.items.add(i) 
-            self.itemsets.add(itemset)
+            self.itemsets.add(frozenset(itemset))
 
 
 # vim: nu:et:ts=4:sw=4:fdm=indent

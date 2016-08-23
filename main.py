@@ -55,6 +55,7 @@ def main():
         if args.verbose: print 'Iteration k={}'.format(k)
 
         arm.init_iteration(k)
+        if args.verbose: print '  loading {}.fsm'.format(arm.ick)
         reports = device.execute(arm.fsm, dataset.encoded_data)
         if len(reports) < 1:
             print '  zero {}-itemsets satisfy minsup {}'.format(arm.k, arm.min_support)
