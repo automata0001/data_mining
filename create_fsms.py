@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
 import os
-import sys
+import time
 
 import micronap.sdk as ap
 
@@ -21,19 +21,42 @@ def create_macro_def(k, id_bytes, num_counters):
     macro.compile()
     macro.export('i{}c{}k{}.anml'.format(id_bytes, num_counters, k))
 
-def compile_automaton(k, id_bytes, num_counters, macro_count):
+def create_network(ick):
     """"""
-    ick = 'i{}c{}k{}'.format(id_bytes, num_counters, k)
-
     anml = ap.Anml()
     mdef = anml.LoadAnmlMacro(os.path.join(settings.ANML_PATH, '{}.anml'.format(ick)))
     network = anml.CreateAutomataNetwork(anmlId='arm_net_{}'.format(ick))
+    return anml, mdef, network
 
-    mrefs = []
-    for i in xrange(macro_count):
-        mrefs.append(network.AddMacroRef(mdef, anmlId='mref{}'.format(i)))
-    fsm, emap = anml.CompileAnml(options=ap.CompileDefs.AP_OPT_MT)
+def compile_automaton(k, id_bytes, num_counters):
+    """"""
+    ick = 'i{}c{}k{}'.format(id_bytes, num_counters, k)
+    count = 1
+    exp = 0
+    block_size = 0
+    elapsed = 0
+    t0 = time.time()
+    while block_size != settings.BLK_PER_DEV and elapsed < settings.COMPILE_TIMEOUT:
+        anml, mdef, net = create_network(ick)
+        mrefs = []
+        for i in xrange(count):
+            mrefs.append(net.AddMacroRef(mdef, anmlId='mref{}'.format(i)))
+        fsm, emap = anml.CompileAnml(options=ap.CompileDefs.AP_OPT_MT)
 
+        block_size = fsm.GetInfo().blocks_rect
+        if block_size > settings.BLK_PER_DEV:
+            count -= 2**(exp-1)
+            exp = 0
+        else:
+            count += 2**exp
+            exp += 1
+        elapsed = time.time() - t0
+
+    fsm = label_automaton(k, id_bytes, mdef, mrefs, fsm, emap)
+    save_automaton(fsm, emap, ick)
+    return fsm, emap
+
+def label_automaton(k, id_bytes, mdef, mrefs, fsm, emap):
     changes = []
     for mref in mrefs:
         for i in xrange(k):
@@ -41,11 +64,12 @@ def compile_automaton(k, id_bytes, num_counters, macro_count):
                 param = mdef.GetMacroParamFromName('%i{}{}'.format(i, x))
                 changes.append(ap.ap_symbol_change(mref, '[]', param))
     fsm.SetSymbol(emap, changes)
+    return fsm
 
+def save_automaton(fsm, emap, ick):
+    """"""
     fsm.Save(os.path.join(settings.FSM_PATH, '{}.fsm'.format(ick)))
     emap.SaveElementMap(os.path.join(settings.MAP_PATH, '{}.map'.format(ick)))
-
-    return fsm, emap
 
 def main():
     """"""
@@ -53,15 +77,9 @@ def main():
     # Parse command line arguments
     parser = ArgumentParser()
     parser.add_argument('--max-k', '-k', type=int, required=True)
-    parser.add_argument('--macro-count', '-m', type=int)
     parser.add_argument('--device', '-d', default=settings.DEV_NAME)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
     args = parser.parse_args()
-
-    if args.macro_count:
-        macro_count = args.macro_count
-    else:
-        macro_count = get_counters_per_rank(args.device)
 
     # Compile automata for each combination of:
     # - number of ID bytes
@@ -71,9 +89,9 @@ def main():
     for id_bytes in xrange(1, 3):
         for num_counters in xrange(1, 4):
             for k in xrange(2, args.max_k + 1):
+                print 'Compiling FSM for i{}c{}k{}'.format(id_bytes, num_counters, k)
                 create_macro_def(k, id_bytes, num_counters)
-                fsm, _ = compile_automaton(k, id_bytes, num_counters, macro_count)
-                print 'Compiled FSM for i{}c{}k{}, blk={}'.format(id_bytes, num_counters, k, fsm.GetInfo().blocks_rect)
+                fsm, _ = compile_automaton(k, id_bytes, num_counters)
 
 
 if __name__ == '__main__':
