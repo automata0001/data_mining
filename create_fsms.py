@@ -10,11 +10,6 @@ from macros import ItemsetMacro
 import utils
 
 
-def get_counters_per_rank(device):
-    """"""
-    metrics = ap.QueryDeviceMetrics(device)
-    return settings.CTR_PER_BLK * settings.BLK_PER_DEV * (metrics.devs_per_rank - 1)
-
 def create_macro_def(k, id_bytes, num_counters):
     """"""
     macro = ItemsetMacro(ap.Anml(), k, id_bytes, num_counters)
@@ -36,7 +31,8 @@ def compile_automaton(k, id_bytes, num_counters):
     block_size = 0
     elapsed = 0
     t0 = time.time()
-    while block_size != settings.BLK_PER_DEV and elapsed < settings.COMPILE_TIMEOUT:
+    # FIXME: after timeout, block_size can be > BLK_PER_RANK!
+    while block_size != settings.BLK_PER_RANK and elapsed < settings.COMPILE_TIMEOUT:
         anml, mdef, net = create_network(ick)
         mrefs = []
         for i in xrange(count):
@@ -44,7 +40,7 @@ def compile_automaton(k, id_bytes, num_counters):
         fsm, emap = anml.CompileAnml(options=ap.CompileDefs.AP_OPT_MT)
 
         block_size = fsm.GetInfo().blocks_rect
-        if block_size > settings.BLK_PER_DEV:
+        if block_size > settings.BLK_PER_RANK:
             count -= 2**(exp-1)
             exp = 0
         else:
