@@ -31,8 +31,7 @@ def compile_automaton(k, id_bytes, num_counters):
     block_size = 0
     elapsed = 0
     t0 = time.time()
-    # FIXME: after timeout, block_size can be > BLK_PER_RANK!
-    while block_size != settings.BLK_PER_RANK and elapsed < settings.COMPILE_TIMEOUT:
+    while block_size != settings.BLK_PER_RANK:
         anml, mdef, net = create_network(ick)
         mrefs = []
         for i in xrange(count):
@@ -41,11 +40,13 @@ def compile_automaton(k, id_bytes, num_counters):
 
         block_size = fsm.GetInfo().blocks_rect
         if block_size > settings.BLK_PER_RANK:
-            count -= 2**(exp-1)
-            exp = 0
-        else:
+            count -= 2**(exp-1) - 1
+            exp = 1
+        elif elapsed < settings.COMPILE_TIMEOUT:
             count += 2**exp
             exp += 1
+        else:
+            break
         elapsed = time.time() - t0
 
     fsm = label_automaton(k, id_bytes, mdef, mrefs, fsm, emap)
