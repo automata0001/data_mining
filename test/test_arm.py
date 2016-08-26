@@ -29,8 +29,7 @@ class TestARM(unittest.TestCase):
         minsup = 1
         arm = ARM([1, 2, 3], minsup)
         arm.init_iteration(k)
-
-        arm.process_reports([1, 2, 3])
+        arm.execute_iteration('\xff\x01\x02\x03\xff\xff\xff')
         self.assertEqual(arm.items, set([1, 2, 3]))
 	
 

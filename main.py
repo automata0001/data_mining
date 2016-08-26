@@ -7,7 +7,6 @@ import sys
 import micronap.sdk as ap
 
 import settings
-from apfacade import APFacade
 from macros import ItemsetMacro
 from dataset import Dataset
 from arm import ARM
@@ -20,7 +19,7 @@ def parse_args():
     parser.add_argument('--device', '-d', default=settings.DEV_NAME)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
     parser.add_argument('--max-k', '-k', type=int, required=True)
-    parser.add_argument('--min-support', '-s', required=True, help='Minimum support threshold expressed as an exact value (n) or a percentage (n%)')
+    parser.add_argument('--min-support', '-s', required=True, help='Minimum support threshold expressed as an exact value (n) or a percentage (n%%)')
     parser.add_argument('dataset_file')
     args = parser.parse_args()
 
@@ -33,12 +32,7 @@ def import_dataset(dataset_file):
     ds.encode_data()
     return ds
 
-def setup_device(dev_name):
-    """"""
-    dev = APFacade(dev_name=dev_name)
-    dev.setup()
-    return dev
-
+# TODO: write output to a file (add argument for filename)
 def main():
     """"""
     args = parse_args()
@@ -48,22 +42,19 @@ def main():
     if args.min_support > settings.MAX_DOUBLE_TARGET:
         sys.exit('{}: support must be <= {}!'.format(__file__, settings.MAX_DOUBLE_TARGET))
 
-    device = setup_device(args.device)
-    arm = ARM(dataset.get_frequent_items(args.min_support), args.min_support, dataset.num_id_bytes)
-
+    arm = ARM(dataset.get_frequent_items(args.min_support), args.min_support, dataset.num_id_bytes, dev_name=args.device)
     for k in xrange(2, args.max_k + 1):
         if args.verbose: print 'Iteration k={}'.format(k)
 
         arm.init_iteration(k)
-        if args.verbose: print '  loading {}.fsm'.format(arm.ick)
-        reports = device.execute(arm.fsm, dataset.encoded_data)
-        if len(reports) < 1:
+        arm.execute_iteration(dataset.encoded_data)
+        if len(arm.itemsets) < 1:
             print '  zero {}-itemsets satisfy minsup {}'.format(arm.k, arm.min_support)
             break
-        arm.process_reports(reports)
-
+        # Print survivors list
         if args.verbose: 
-            print '  survivors({}): {}'.format(len(arm.itemsets), arm.itemsets)
+            for i in sorted(arm.itemsets, key=lambda x: len(x)):
+                print '  {}'.format(sorted(list(i)))
 
 
 if __name__ == '__main__':

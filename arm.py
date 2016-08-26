@@ -3,12 +3,13 @@ import os
 
 import micronap.sdk as ap
 
+from apfacade import APFacade
 import settings
 import utils
 
 
 class ARM(object):
-    def __init__(self, initial_items, min_support, num_id_bytes=1):
+    def __init__(self, initial_items, min_support, num_id_bytes=1, dev_name=settings.DEV_NAME):
         """"""
         self.min_support = min_support
         self.num_id_bytes = num_id_bytes
@@ -23,6 +24,9 @@ class ARM(object):
         self.emap = None
         self.mdef = None
 
+        self.device = APFacade(dev_name=dev_name)
+        self.device.setup()
+
     def init_iteration(self, k):
         """"""
         self.k = k
@@ -32,7 +36,32 @@ class ARM(object):
         self.restore_itemset_fsm_()
         self.restore_itemset_emap_()
         self.generate_candidates_()
-        self.label_candidates_()
+
+    def execute_iteration(self, data):
+        rank_count = ap.QueryDeviceMetrics()[0].rank_count
+        macros_per_fsm = self.fsm.GetInfo().match_res
+        macros_per_board = macros_per_fsm * rank_count
+        tot_rem = len(self.candidates)
+        i = 0
+        reports = []
+        while tot_rem > 0:
+            fsms = []
+            rnd_rem = min(tot_rem, macros_per_board)
+            tot_rem -= rnd_rem
+            while rnd_rem > 0:
+                fsm_rem = min(rnd_rem, macros_per_fsm)
+                fsm = self.fsm.Duplicate()
+                fsm = self.label_candidates_(fsm, i, i + fsm_rem)
+                fsms.append(fsm)
+                rnd_rem -= fsm_rem
+                i += fsm_rem
+
+            self.device.load(fsms)
+            self.device.open_flows()
+            reports += self.device.scan(data)
+            self.process_reports(reports)
+            self.device.close_flows()
+            self.device.unload()
 
     def restore_itemset_mdef_(self):
         """"""
@@ -56,18 +85,19 @@ class ARM(object):
         """"""
         self.candidates = list(itertools.combinations(self.items, self.k))
 
-    def label_candidates_(self):
+    def label_candidates_(self, fsm, start, end):
         """"""
         symbol_chgs = []
         target_chgs = []
 
-        for i, itemset in enumerate(self.candidates):
+        for i in xrange(end - start):
             mref = self.emap.GetElementRefFromElementId('arm_net_{}.mref{}'.format(self.ick, i))
-            symbol_chgs += self.label_items_(mref, itemset)
+            symbol_chgs += self.label_items_(mref, self.candidates[i + start])
             target_chgs += self.label_counter_(mref)
 
-        self.fsm.SetSymbol(self.emap, symbol_chgs)
-        self.fsm.SetCounterTarget(self.emap, target_chgs)
+        fsm.SetSymbol(self.emap, symbol_chgs)
+        fsm.SetCounterTarget(self.emap, target_chgs)
+        return fsm
 
     def label_items_(self, mref, itemset):
         """"""
@@ -115,10 +145,13 @@ class ARM(object):
                 ap.ap_counter_change(mref, self.factors[1], q_param),
                 ap.ap_counter_change(mref, self.factors[2], r_param)]
 
-    def process_reports(self, erefs):
+    def process_reports(self, reports):
         """"""
-        for eref in erefs:
-            itemset = self.candidates[eref - 1]
+        for report in reports:
+            # FIXME: this is horrifically inefficient!
+            flow_idx = self.device.flows.index(report.flow)
+            cand_idx = (flow_idx * self.fsm.GetInfo().blocks_rect) + report.report_alias.elementRef - 1
+            itemset = self.candidates[cand_idx]
             for i in itemset: 
                 self.items.add(i) 
             self.itemsets.add(frozenset(itemset))

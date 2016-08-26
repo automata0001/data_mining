@@ -23,7 +23,14 @@ def create_network(ick):
     network = anml.CreateAutomataNetwork(anmlId='arm_net_{}'.format(ick))
     return anml, mdef, network
 
-def compile_automaton(k, id_bytes, num_counters):
+def get_load_size(fsm):
+    """"""
+    try:
+        return ap.CalcLoadSize(fsm)
+    except ap.ApError:
+        return float('inf')
+
+def compile_automaton(k, id_bytes, num_counters, verbose=False):
     """"""
     ick = 'i{}c{}k{}'.format(id_bytes, num_counters, k)
     count = 1
@@ -39,7 +46,9 @@ def compile_automaton(k, id_bytes, num_counters):
         fsm, emap = anml.CompileAnml(options=ap.CompileDefs.AP_OPT_MT)
 
         block_size = fsm.GetInfo().blocks_rect
-        if block_size > settings.BLK_PER_RANK:
+        if verbose: print 'count={}, blocks={}, time={:.2f}'.format(count, block_size, time.time() - t0)
+
+        if block_size > settings.BLK_PER_RANK or get_load_size(fsm) > 8:
             count -= 2**(exp-1) - 1
             exp = 1
         elif elapsed < settings.COMPILE_TIMEOUT:
@@ -88,7 +97,7 @@ def main():
             for k in xrange(2, args.max_k + 1):
                 print 'Compiling FSM for i{}c{}k{}'.format(id_bytes, num_counters, k)
                 create_macro_def(k, id_bytes, num_counters)
-                fsm, _ = compile_automaton(k, id_bytes, num_counters)
+                fsm, _ = compile_automaton(k, id_bytes, num_counters, args.verbose)
 
 
 if __name__ == '__main__':

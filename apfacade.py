@@ -12,40 +12,51 @@ class APFacade(object):
             self.dev_name = metrics[0].dev_name
 
         self.device = ap.Device()
-        self.rto = None
+        self.rtos = []
+        self.flows = []
 
     def setup(self):
         ap.ConfigureDevice(self.dev_name)
         self.device.OpenDevice(self.dev_name)
     
-    def load(self, fsm):
-        self.rto = self.device.Load(0, fsm) 
+    def load(self, fsms):
+        try:
+            for fsm in fsms:
+                self.rtos.append(self.device.Load(0, fsm))
+        except TypeError:
+            self.rtos.append(self.device.Load(0, fsms))
 
     def unload(self):
-        if self.rto:
-            self.rto.Unload()
-            self.rto = None
+        for rto in self.rtos:
+            rto.Unload()
+        self.rtos = []
+
+    def open_flows(self):
+        for rto in self.rtos:
+            self.flows.append(self.device.OpenFlow(rto))
+
+    def close_flows(self):
+        for flow in self.flows:
+            flow.Close()
+        self.flows = []
 
     # TODO: support data as a file handle for more efficient memory usage/chunking
-    # TODO: support async behavior, yield reports as they arrive
     def scan(self, data, chunk_size=settings.DEFAULT_CHUNK_SZ):
         reports = []
         i = 0
-        flow = self.device.OpenFlow(self.rto)
         while i < len(data):
             chunk = data[i:i + chunk_size]
-            wait = self.device.ScanFlows([ (flow, chunk) ])
-            self.device.Wait(wait)
-            reports += self.get_reports_()
+            wait = self.device.ScanFlows([(x, chunk) for x in self.flows])
             i += chunk_size
-        return reports
+        self.device.Wait(wait)
+        return self.get_reports_()
 
     def get_reports_(self):
-        erefs = []
-        for reports in iter(self.device.GetMatches, []):
-            for report in reports:
-                erefs.append(report.report_alias.elementRef)
-        return erefs
+        reports = []
+        for batch in iter(self.device.GetMatches, []):
+            for report in batch:
+                reports.append(report)
+        return reports
 
     def execute(self, fsm, data):
         self.load(fsm)

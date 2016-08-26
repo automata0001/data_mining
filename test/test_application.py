@@ -1,7 +1,6 @@
 import os
 import unittest
 
-from apfacade import APFacade
 from dataset import Dataset
 from arm import ARM
 import settings
@@ -18,13 +17,6 @@ class TestApplication(unittest.TestCase):
         self.dataset.parse_file()
         self.dataset.encode_data()
 
-        self.device = APFacade(dev_name=settings.DEV_NAME)
-        self.device.setup()
-
-    def tearDown(self):
-        """"""
-        self.device = None
-
     def test_simple(self):
         """"""
         k = 3
@@ -33,8 +25,7 @@ class TestApplication(unittest.TestCase):
         
         for k in xrange(2, k+1):
             arm.init_iteration(k)
-            reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
-            arm.process_reports(reports)
+            arm.execute_iteration(self.dataset.encoded_data)
 
         self.assertEquals(arm.items, set([1, 2, 3, 4]))
 
@@ -46,8 +37,7 @@ class TestApplication(unittest.TestCase):
         
         for k in xrange(2, k+1):
             arm.init_iteration(k)
-            reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
-            arm.process_reports(reports)
+            arm.execute_iteration(self.dataset.encoded_data)
 
         self.assertEquals(arm.items, set([1, 2, 3, 5]))
         self.assertEquals(arm.itemsets, set([
@@ -76,8 +66,7 @@ class TestApplication(unittest.TestCase):
         
         for k in xrange(2, k+1):
             arm.init_iteration(k)
-            reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
-            arm.process_reports(reports)
+            arm.execute_iteration(self.dataset.encoded_data)
 
         self.assertEquals(arm.items, set([1, 2, 3, 4]))
         self.assertEquals(arm.itemsets, set([
@@ -97,8 +86,7 @@ class TestApplication(unittest.TestCase):
         
         for k in xrange(2, k+1):
             arm.init_iteration(k)
-            reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
-            arm.process_reports(reports)
+            arm.execute_iteration(self.dataset.encoded_data)
 
         self.assertEquals(arm.items, set([1, 2, 4, 5]))
         self.assertEquals(arm.itemsets, set([
@@ -121,8 +109,7 @@ class TestApplication(unittest.TestCase):
         
         for k in xrange(2, k+1):
             arm.init_iteration(k)
-            reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
-            arm.process_reports(reports)
+            arm.execute_iteration(self.dataset.encoded_data)
 
         self.assertEquals(arm.items, set([1, 2, 3, 4, 5]))
         self.assertEquals(arm.itemsets, set([
@@ -143,8 +130,7 @@ class TestApplication(unittest.TestCase):
         
         for k in xrange(2, k+1):
             arm.init_iteration(k)
-            reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
-            arm.process_reports(reports)
+            arm.execute_iteration(self.dataset.encoded_data)
 
         self.assertEquals(arm.items, set([1, 2, 3]))
         self.assertEquals(arm.itemsets, set([
@@ -165,8 +151,7 @@ class TestApplication(unittest.TestCase):
         
         for k in xrange(2, k+1):
             arm.init_iteration(k)
-            reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
-            arm.process_reports(reports)
+            arm.execute_iteration(self.dataset.encoded_data)
 
         self.assertEquals(arm.items, set([1, 2, 3]))
         self.assertEquals(arm.itemsets, set([
@@ -187,8 +172,7 @@ class TestApplication(unittest.TestCase):
         
         for k in xrange(2, k+1):
             arm.init_iteration(k)
-            reports = self.device.execute(arm.fsm, self.dataset.encoded_data)
-            arm.process_reports(reports)
+            arm.execute_iteration(self.dataset.encoded_data)
 
         self.assertEquals(arm.items, set([1, 10, 1000]))
         self.assertEquals(arm.itemsets, set([
@@ -199,6 +183,125 @@ class TestApplication(unittest.TestCase):
             frozenset([1, 1000]),
             frozenset([10, 1000]),
             frozenset([1, 10, 1000]),
+        ]))
+
+    def test_multi_round(self):
+        """"""
+        k = 3
+        minsup = 3000
+        arm = ARM(self.dataset.get_frequent_items(minsup), minsup, num_id_bytes=self.dataset.num_id_bytes)
+        
+        for k in xrange(2, k+1):
+            arm.init_iteration(k)
+            arm.execute_iteration(self.dataset.encoded_data)
+
+        self.assertEquals(arm.items, set([7, 29, 34, 36, 40, 48, 52, 56, 58, 60, 62, 66]))
+        self.assertEquals(arm.itemsets, set([
+            frozenset([48, 58]),
+            frozenset([60, 7]),
+            frozenset([40, 7]),
+            frozenset([40, 60, 7]),
+            frozenset([58, 52, 62]),
+            frozenset([56, 52]),
+            frozenset([58, 29, 62]),
+            frozenset([40, 58, 52]),
+            frozenset([52, 58, 36]),
+            frozenset([58]),
+            frozenset([60, 52]),
+            frozenset([56, 58, 29]),
+            frozenset([29, 62]),
+            frozenset([29]),
+            frozenset([40, 34, 58]),
+            frozenset([40, 29, 7]),
+            frozenset([60, 66, 52]),
+            frozenset([40, 58, 7]),
+            frozenset([58, 60, 62]),
+            frozenset([66, 60]),
+            frozenset([40]),
+            frozenset([60, 58, 36]),
+            frozenset([66]),
+            frozenset([34, 58, 29]),
+            frozenset([40, 58, 29]),
+            frozenset([58, 36]),
+            frozenset([60, 58, 52]),
+            frozenset([52, 36]),
+            frozenset([66, 29]),
+            frozenset([40, 58]),
+            frozenset([56, 52, 29]),
+            frozenset([40, 29]),
+            frozenset([52, 62]),
+            frozenset([40, 34, 29]),
+            frozenset([56]),
+            frozenset([48, 52]),
+            frozenset([60, 52, 7]),
+            frozenset([60]),
+            frozenset([40, 62]),
+            frozenset([34, 52, 29]),
+            frozenset([40, 60]),
+            frozenset([62]),
+            frozenset([58, 60, 29]),
+            frozenset([36, 29]),
+            frozenset([56, 58]),
+            frozenset([40, 52, 29]),
+            frozenset([48, 58, 52]),
+            frozenset([60, 52, 29]),
+            frozenset([56, 29]),
+            frozenset([52, 7]),
+            frozenset([58, 36, 29]),
+            frozenset([60, 29]),
+            frozenset([66, 52]),
+            frozenset([58, 60, 7]),
+            frozenset([40, 52, 62]),
+            frozenset([40, 60, 29]),
+            frozenset([60, 52, 62]),
+            frozenset([66, 60, 58]),
+            frozenset([34, 58]),
+            frozenset([40, 52, 7]),
+            frozenset([66, 60, 29]),
+            frozenset([60, 62]),
+            frozenset([48]),
+            frozenset([52, 29]),
+            frozenset([40, 52, 36]),
+            frozenset([40, 58, 36]),
+            frozenset([40, 36, 29]),
+            frozenset([40, 34]),
+            frozenset([52, 29, 62]),
+            frozenset([58, 29, 7]),
+            frozenset([34]),
+            frozenset([58, 52, 7]),
+            frozenset([66, 58]),
+            frozenset([29, 7]),
+            frozenset([34, 29]),
+            frozenset([40, 60, 36]),
+            frozenset([40, 36]),
+            frozenset([60, 36]),
+            frozenset([40, 60, 52]),
+            frozenset([58, 52]),
+            frozenset([34, 52, 58]),
+            frozenset([7]),
+            frozenset([58, 29]),
+            frozenset([52, 36, 60]),
+            frozenset([66, 52, 29]),
+            frozenset([66, 52, 58]),
+            frozenset([52, 29, 7]),
+            frozenset([66, 58, 29]),
+            frozenset([58, 62]),
+            frozenset([60, 29, 62]),
+            frozenset([52, 36, 29]),
+            frozenset([40, 52]),
+            frozenset([40, 34, 52]),
+            frozenset([58, 7]),
+            frozenset([56, 58, 52]),
+            frozenset([58, 60]),
+            frozenset([52]),
+            frozenset([40, 58, 60]),
+            frozenset([60, 29, 7]),
+            frozenset([34, 52]),
+            frozenset([36]),
+            frozenset([40, 29, 62]),
+            frozenset([60, 36, 29]),
+            frozenset([58, 52, 29]),
+            frozenset([40, 58, 62]),
         ]))
 
 
